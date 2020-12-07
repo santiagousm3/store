@@ -1,5 +1,9 @@
 <?php
-	include('is_logged.php');//Archivo verifica que el usario que intenta acceder a la URL esta logueado
+		session_start();
+	if (!isset($_SESSION["user_login_status"]) and $_SESSION["user_login_status"] != 1 ) {
+        header("location: ../login.php");
+		exit;
+    }
 	/*Inicia validacion del lado del servidor*/
 	if (empty($_POST['mod_id'])) {
            $errors[] = "ID vacío";

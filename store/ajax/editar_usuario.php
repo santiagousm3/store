@@ -1,5 +1,9 @@
 <?php
-include('is_logged.php');//Archivo verifica que el usario que intenta acceder a la URL esta logueado
+	session_start();
+	if (!isset($_SESSION["user_login_status"]) and $_SESSION["user_login_status"] != 1 ) {
+        header("location: ../login.php");
+		exit;
+    }
 // checking for minimum PHP version
 if (version_compare(PHP_VERSION, '5.3.7', '<')) {
     exit("Sorry, Simple PHP Login does not run on a PHP version smaller than 5.3.7 !");

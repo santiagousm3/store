@@ -1,20 +1,25 @@
 <?php
+
+	session_start();
+	if (!isset($_SESSION["user_login_status"]) and $_SESSION["user_login_status"] != 1 ) {
+        header("location: ../login.php");
+		exit;
+    }
 	/* Connect To Database*/
 	require_once ("../config/db.php");//Contiene las variables de configuracion para conectar a la base de datos
 	require_once ("../config/conexion.php");//Contiene funcion que conecta a la base de datos
-	include('is_logged.php');//Archivo verifica que el usario que intenta acceder a la URL esta logueado
+	
 	$action = (isset($_REQUEST['action'])&& $_REQUEST['action'] !=NULL)?$_REQUEST['action']:'';
 	if (isset($_GET['id'])){
-		$user_id=intval($_GET['id']);
-		$query=mysqli_query($con, "select * from users where user_id='".$user_id."'");
-		$rw_user=mysqli_fetch_array($query);
-		$count=$rw_user['user_id'];
-		if ($user_id != 1){
-			if ($delete1=mysqli_query($con,"DELETE FROM users WHERE user_id='".$user_id."'")){
+		$id_categoria=intval($_GET['id']);
+		$query=mysqli_query($con, "select * from products where id_categoria='".$id_categoria."'");
+		$count=mysqli_num_rows($query);
+		if ($count==0){
+			if ($delete1=mysqli_query($con,"DELETE FROM categorias WHERE id_categoria='".$id_categoria."'")){
 			?>
 			<div class="alert alert-success alert-dismissible" role="alert">
 			  <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			  <strong>Aviso!</strong>  Datos eliminados exitosamente.
+			  <strong>Aviso!</strong> Datos eliminados exitosamente.
 			</div>
 			<?php 
 		}else {
@@ -31,7 +36,7 @@
 			?>
 			<div class="alert alert-danger alert-dismissible" role="alert">
 			  <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			  <strong>Error!</strong> No se puede borrar el usuario administrador. 
+			  <strong>Error!</strong> No se pudo eliminar ésta  categoría. Existen productos vinculados a ésta categoría. 
 			</div>
 			<?php
 		}
@@ -42,8 +47,8 @@
 	if($action == 'ajax'){
 		// escaping, additionally removing everything that could be (html/javascript-) code
          $q = mysqli_real_escape_string($con,(strip_tags($_REQUEST['q'], ENT_QUOTES)));
-		 $aColumns = array('firstname', 'lastname');//Columnas de busqueda
-		 $sTable = "users";
+		 $aColumns = array('nombre_categoria');//Columnas de busqueda
+		 $sTable = "categorias";
 		 $sWhere = "";
 		if ( $_GET['q'] != "" )
 		{
@@ -55,7 +60,7 @@
 			$sWhere = substr_replace( $sWhere, "", -3 );
 			$sWhere .= ')';
 		}
-		$sWhere.=" order by user_id desc";
+		$sWhere.=" order by nombre_categoria";
 		include 'pagination.php'; //include pagination file
 		//pagination variables
 		$page = (isset($_REQUEST['page']) && !empty($_REQUEST['page']))?$_REQUEST['page']:1;
@@ -67,7 +72,7 @@
 		$row= mysqli_fetch_array($count_query);
 		$numrows = $row['numrows'];
 		$total_pages = ceil($numrows/$per_page);
-		$reload = './usuarios.php';
+		$reload = './clientes.php';
 		//main query to fetch the data
 		$sql="SELECT * FROM  $sTable $sWhere LIMIT $offset,$per_page";
 		$query = mysqli_query($con, $sql);
@@ -78,47 +83,37 @@
 			<div class="table-responsive">
 			  <table class="table">
 				<tr  class="success">
-					<th>ID</th>
-					<th>Nombres</th>
-					<th>Usuario</th>
-					<th>Email</th>
+					<th>Nombre</th>
+					<th>Descripción</th>
 					<th>Agregado</th>
-					<th><span class="pull-right">Acciones</span></th>
+					<th class='text-right'>Acciones</th>
 					
 				</tr>
 				<?php
 				while ($row=mysqli_fetch_array($query)){
-						$user_id=$row['user_id'];
-						$fullname=$row['firstname']." ".$row["lastname"];
-						$user_name=$row['user_name'];
-						$user_email=$row['user_email'];
+						$id_categoria=$row['id_categoria'];
+						$nombre_categoria=$row['nombre_categoria'];
+						$descripcion_categoria=$row['descripcion_categoria'];
 						$date_added= date('d/m/Y', strtotime($row['date_added']));
 						
 					?>
-					
-					<input type="hidden" value="<?php echo $row['firstname'];?>" id="nombres<?php echo $user_id;?>">
-					<input type="hidden" value="<?php echo $row['lastname'];?>" id="apellidos<?php echo $user_id;?>">
-					<input type="hidden" value="<?php echo $user_name;?>" id="usuario<?php echo $user_id;?>">
-					<input type="hidden" value="<?php echo $user_email;?>" id="email<?php echo $user_id;?>">
-				
 					<tr>
-						<td><?php echo $user_id; ?></td>
-						<td><?php echo $fullname; ?></td>
-						<td ><?php echo $user_name; ?></td>
-						<td ><?php echo $user_email; ?></td>
+						
+						<td><?php echo $nombre_categoria; ?></td>
+						<td ><?php echo $descripcion_categoria; ?></td>
 						<td><?php echo $date_added;?></td>
 						
-					<td ><span class="pull-right">
-					<a href="#" class='btn btn-default' title='Editar usuario' onclick="obtener_datos('<?php echo $user_id;?>');" data-toggle="modal" data-target="#myModal2"><i class="fas fa-edit"></i></a> 
-					<a href="#" class='btn btn-default' title='Cambiar contraseña' onclick="get_user_id('<?php echo $user_id;?>');" data-toggle="modal" data-target="#myModal3"><i class="fas fa-key"></i></a>
-					<a href="#" class='btn btn-default' title='Borrar usuario' onclick="eliminar('<?php echo $user_id; ?>');"><i class="fas fa-trash"></i> </a></span></td>
+					<td class='text-right'>
+						<a href="#" class='btn btn-default' title='Editar categoría' data-nombre='<?php echo $nombre_categoria;?>' data-descripcion='<?php echo $descripcion_categoria?>' data-id='<?php echo $id_categoria;?>' data-toggle="modal" data-target="#myModal2"><i class="fas fa-edit"></i></a> 
+						<a href="#" class='btn btn-default' title='Borrar categoría' onclick="eliminar('<?php echo $id_categoria; ?>')"><i class="fas fa-trash-alt"></i> </a>
+					</td>
 						
 					</tr>
 					<?php
 				}
 				?>
 				<tr>
-					<td colspan=9><span class="pull-right">
+					<td colspan=4><span class="pull-right">
 					<?php
 					 echo paginate($reload, $page, $total_pages, $adjacents);
 					?></span></td>
