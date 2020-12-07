@@ -1,18 +1,20 @@
 <?php
 
-	include('is_logged.php');//Archivo verifica que el usario que intenta acceder a la URL esta logueado
+		session_start();
+	if (!isset($_SESSION["user_login_status"]) and $_SESSION["user_login_status"] != 1 ) {
+        header("location: ../login.php");
+		exit;
+    }
 	/* Connect To Database*/
 	require_once ("../config/db.php");//Contiene las variables de configuracion para conectar a la base de datos
 	require_once ("../config/conexion.php");//Contiene funcion que conecta a la base de datos
-	
+	//Archivo de funciones PHP
+	include("../funciones.php");
 	$action = (isset($_REQUEST['action'])&& $_REQUEST['action'] !=NULL)?$_REQUEST['action']:'';
 	if (isset($_GET['id'])){
-		$id_categoria=intval($_GET['id']);
-		$query=mysqli_query($con, "select * from products where id_categoria='".$id_categoria."'");
-		$count=mysqli_num_rows($query);
-		if ($count==0){
-			if ($delete1=mysqli_query($con,"DELETE FROM categorias WHERE id_categoria='".$id_categoria."'")){
-			?>
+		$id_producto=intval($_GET['id']);
+		if ($delete1=mysqli_query($con,"DELETE FROM products WHERE id_producto='".$id_producto."'")){
+		?>
 			<div class="alert alert-success alert-dismissible" role="alert">
 			  <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			  <strong>Aviso!</strong> Datos eliminados exitosamente.
@@ -28,14 +30,7 @@
 			
 		}
 			
-		} else {
-			?>
-			<div class="alert alert-danger alert-dismissible" role="alert">
-			  <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			  <strong>Error!</strong> No se pudo eliminar ésta  categoría. Existen productos vinculados a ésta categoría. 
-			</div>
-			<?php
-		}
+		 
 		
 		
 		
@@ -43,11 +38,11 @@
 	if($action == 'ajax'){
 		// escaping, additionally removing everything that could be (html/javascript-) code
          $q = mysqli_real_escape_string($con,(strip_tags($_REQUEST['q'], ENT_QUOTES)));
-		 $aColumns = array('nombre_categoria');//Columnas de busqueda
-		 $sTable = "categorias";
+		 $id_categoria =intval($_REQUEST['id_categoria']);
+		 $aColumns = array('codigo_producto', 'nombre_producto');//Columnas de busqueda
+		 $sTable = "products";
 		 $sWhere = "";
-		if ( $_GET['q'] != "" )
-		{
+		
 			$sWhere = "WHERE (";
 			for ( $i=0 ; $i<count($aColumns) ; $i++ )
 			{
@@ -55,12 +50,15 @@
 			}
 			$sWhere = substr_replace( $sWhere, "", -3 );
 			$sWhere .= ')';
+		
+		if ($id_categoria>0){
+			$sWhere .=" and id_categoria='$id_categoria'";
 		}
-		$sWhere.=" order by nombre_categoria";
+		$sWhere.=" order by id_producto desc";
 		include 'pagination.php'; //include pagination file
 		//pagination variables
 		$page = (isset($_REQUEST['page']) && !empty($_REQUEST['page']))?$_REQUEST['page']:1;
-		$per_page = 10; //how much records you want to show
+		$per_page = 18; //how much records you want to show
 		$adjacents  = 4; //gap between pages after number of adjacents
 		$offset = ($page - 1) * $per_page;
 		//Count the total number of row in your table*/
@@ -68,7 +66,7 @@
 		$row= mysqli_fetch_array($count_query);
 		$numrows = $row['numrows'];
 		$total_pages = ceil($numrows/$per_page);
-		$reload = './clientes.php';
+		$reload = './productos.php';
 		//main query to fetch the data
 		$sql="SELECT * FROM  $sTable $sWhere LIMIT $offset,$per_page";
 		$query = mysqli_query($con, $sql);
@@ -76,46 +74,39 @@
 		if ($numrows>0){
 			
 			?>
-			<div class="table-responsive">
-			  <table class="table">
-				<tr  class="success">
-					<th>Nombre</th>
-					<th>Descripción</th>
-					<th>Agregado</th>
-					<th class='text-right'>Acciones</th>
-					
-				</tr>
+			  
 				<?php
+				$nums=1;
 				while ($row=mysqli_fetch_array($query)){
-						$id_categoria=$row['id_categoria'];
-						$nombre_categoria=$row['nombre_categoria'];
-						$descripcion_categoria=$row['descripcion_categoria'];
-						$date_added= date('d/m/Y', strtotime($row['date_added']));
-						
+						$id_producto=$row['id_producto'];
+						$codigo_producto=$row['codigo_producto'];
+						$nombre_producto=$row['nombre_producto'];
+						$stock=$row['stock'];
 					?>
-					<tr>
-						
-						<td><?php echo $nombre_categoria; ?></td>
-						<td ><?php echo $descripcion_categoria; ?></td>
-						<td><?php echo $date_added;?></td>
-						
-					<td class='text-right'>
-						<a href="#" class='btn btn-default' title='Editar categoría' data-nombre='<?php echo $nombre_categoria;?>' data-descripcion='<?php echo $descripcion_categoria?>' data-id='<?php echo $id_categoria;?>' data-toggle="modal" data-target="#myModal2"><i class="fas fa-edit"></i></a> 
-						<a href="#" class='btn btn-default' title='Borrar categoría' onclick="eliminar('<?php echo $id_categoria; ?>')"><i class="fas fa-trash-alt"></i> </a>
-					</td>
-						
-					</tr>
+					
+					<div class="col-lg-4 col-md-4 col-sm-6 col-xs-12 thumb text-center ng-scope" ng-repeat="item in records">
+						  <a class="thumbnail" href="producto.php?id=<?php echo $id_producto;?>">
+							  <span title="Current quantity" class="badge badge-default stock-counter ng-binding"><?php echo number_format($stock,2); ?></span>
+							  <span title="Low stock" class="low-stock-alert ng-hide" ng-show="item.current_quantity <= item.low_stock_threshold"><i class="fas fa-hashtag"></i></span>
+							  <img class="img-fluid" src="img/stock.png" alt="<?php echo $nombre_producto;?>">
+						  </a>
+						  <span class="thumb-name"><strong><?php echo $nombre_producto;?></strong></span>
+						  <span class="thumb-code ng-binding"><?php echo $codigo_producto;?></span>
+					</div>
 					<?php
+					if ($nums%6==0){
+						echo "<div class='clearfix'></div>";
+					}
+					$nums++;
 				}
 				?>
-				<tr>
-					<td colspan=4><span class="pull-right">
-					<?php
+				<div class="clearfix"></div>
+				<div class="row">
+					<div class="col-md-12"><?php
 					 echo paginate($reload, $page, $total_pages, $adjacents);
-					?></span></td>
-				</tr>
-			  </table>
-			</div>
+					?></div>
+				</div>
+			
 			<?php
 		}
 	}
